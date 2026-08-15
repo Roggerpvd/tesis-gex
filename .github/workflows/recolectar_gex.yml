@@ -2,6 +2,11 @@ name: Recolectar GEX diario
 
 on:
   schedule:
+    # GitHub Actions programa en UTC. El mercado de EE.UU. cierra
+    # 16:00 hora de Nueva York, que equivale a distintas horas UTC
+    # según horario de verano (EDT) o invierno (EST). Por eso se
+    # disparan 2 horarios; el script decide cuál ejecución es la
+    # válida y descarta la otra automáticamente.
     - cron: '10 20 * * 1-5'   # ~16:10 hora NY durante EDT (verano, marzo-noviembre)
     - cron: '10 21 * * 1-5'   # ~16:10 hora NY durante EST (invierno, noviembre-marzo)
   workflow_dispatch: {}        # permite ejecutarlo manualmente desde GitHub para probar
@@ -31,6 +36,7 @@ jobs:
         run: |
           git config user.name "GEX Bot"
           git config user.email "actions@github.com"
-          git add data/
+          mkdir -p data
+          git add -A data/
           git diff --cached --quiet || git commit -m "Snapshot GEX $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
