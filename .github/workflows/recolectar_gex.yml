@@ -1,0 +1,36 @@
+name: Recolectar GEX diario
+
+on:
+  schedule:
+    - cron: '10 20 * * 1-5'   # ~16:10 hora NY durante EDT (verano, marzo-noviembre)
+    - cron: '10 21 * * 1-5'   # ~16:10 hora NY durante EST (invierno, noviembre-marzo)
+  workflow_dispatch: {}        # permite ejecutarlo manualmente desde GitHub para probar
+
+permissions:
+  contents: write
+
+jobs:
+  recolectar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar recolector de GEX
+        run: python recolector_gex.py
+
+      - name: Guardar cambios en el repo
+        run: |
+          git config user.name "GEX Bot"
+          git config user.email "actions@github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "Snapshot GEX $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
