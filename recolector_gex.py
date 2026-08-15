@@ -1,3 +1,4 @@
+
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -24,6 +25,12 @@ HORA_MAX_NY = 17  # tolerancia de 1 hora para que el workflow tenga margen
 
 # 0. VERIFICAR QUE ES LA EJECUCIÓN CORRECTA (por el tema de DST)
 def es_horario_valido():
+    # Si se disparó manualmente (botón "Run workflow"), siempre corre,
+    # sin importar la hora -> útil para pruebas.
+    if os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch":
+        print("Ejecución manual (workflow_dispatch): se salta el chequeo de horario.")
+        return True
+
     ahora_ny = datetime.now(ZoneInfo("America/New_York"))
     if ahora_ny.weekday() >= 5:  # sábado=5, domingo=6
         print(f"Hoy es fin de semana en NY ({ahora_ny}), mercado cerrado. Saliendo.")
