@@ -1,4 +1,3 @@
-
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -61,7 +60,17 @@ def calcular_gex_ticker(ticker_symbol, max_vencimientos=6):
         raise ValueError(f"No se pudo obtener precio spot de {ticker_symbol}")
     spot = hist["Close"].iloc[-1]
 
-    vencimientos = tk.options[:max_vencimientos]
+    vencimientos_todos = tk.options[:max_vencimientos + 1]
+    hoy_fecha = datetime.now(ZoneInfo("America/New_York")).date()
+    # Se excluyen los vencimientos 0DTE (mismo día de la recolección):
+    # Black-Scholes no está definido en T=0, y forzar T a un valor mínimo
+    # arbitrario introduciría un sesgo no justificado. Esta exclusión se
+    # declara como limitación explícita en la metodología de la tesis.
+    vencimientos = [
+        v for v in vencimientos_todos
+        if datetime.strptime(v, "%Y-%m-%d").date() > hoy_fecha
+    ][:max_vencimientos]
+
     if not vencimientos:
         raise ValueError(f"No hay vencimientos disponibles para {ticker_symbol}")
 
