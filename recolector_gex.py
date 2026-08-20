@@ -78,14 +78,28 @@ def calcular_gex_ticker(ticker_symbol, max_vencimientos=6):
     gex_total = 0.0
     filas_detalle = []
 
+    # ------------------------------------------------------------------
+    # Paso previo: calcular la volatilidad implícita mediana del día,
+    # usando solo contratos con IV válida (>0). Sirve de respaldo para
+    # contratos poco líquidos donde Yahoo Finance reporta IV=0 (dato
+    # obsoleto/no calculado), en vez de perder su contribución al GEX
+    # pese a tener open interest real.
+    # ------------------------------------------------------------------
+    ivs_validas = []
+    for exp in vencimientos:
+        chain = tk.option_chain(exp)
+        for df in (chain.calls, chain.puts):
+            ivs_validas.extend(df.loc[df["impliedVolatility"] > 0, "impliedVolatility"].tolist())
+    iv_mediana = float(np.median(ivs_validas)) if ivs_validas else 0.20  # 0.20 como último recurso
+
     for exp in vencimientos:
         chain = tk.option_chain(exp)
         calls, puts = chain.calls, chain.puts
         T = max((datetime.strptime(exp, "%Y-%m-%d") - hoy).days, 0) / 365.0
 
         for _, row in calls.iterrows():
-            gamma = calcular_gamma_bs(spot, row["strike"], T, RISK_FREE_RATE,
-                                       row["impliedVolatility"])
+            sigma = row["impliedVolatility"] if row["impliedVolatility"] > 0 else iv_mediana
+            gamma = calcular_gamma_bs(spot, row["strike"], T, RISK_FREE_RATE, sigma)
             oi = row["openInterest"] if not np.isnan(row["openInterest"]) else 0
             contrib = gamma * oi * CONTRACT_MULTIPLIER * (spot ** 2) * 0.01
             gex_total += contrib
@@ -94,8 +108,8 @@ def calcular_gex_ticker(ticker_symbol, max_vencimientos=6):
                                    "gamma": gamma, "gex_contrib": contrib})
 
         for _, row in puts.iterrows():
-            gamma = calcular_gamma_bs(spot, row["strike"], T, RISK_FREE_RATE,
-                                       row["impliedVolatility"])
+            sigma = row["impliedVolatility"] if row["impliedVolatility"] > 0 else iv_mediana
+            gamma = calcular_gamma_bs(spot, row["strike"], T, RISK_FREE_RATE, sigma)
             oi = row["openInterest"] if not np.isnan(row["openInterest"]) else 0
             contrib = -gamma * oi * CONTRACT_MULTIPLIER * (spot ** 2) * 0.01
             gex_total += contrib
